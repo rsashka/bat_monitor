@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Create library
 add_library(tests STATIC
+    mocks/logger.cpp
     ../main/PropertyParser.cpp
 )
 
@@ -28,6 +29,8 @@ message(STATUS "GTest found at: ${GTEST_INCLUDE_DIRS}")
 # Create test executable
 add_executable(unit-test 
     PropertyParserTests.cpp
+    LoggerTests.cpp
+    TaskWIFITests.cpp
 )
 
 target_link_libraries(unit-test tests GTest::gtest_main)

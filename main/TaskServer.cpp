@@ -60,8 +60,6 @@ void TaskServer::event_handler(void *arg, esp_event_base_t event_base,
   }
 }
 
-
-
 void TaskServer::wifi_init_sta(void) {
   s_wifi_event_group = xEventGroupCreate();
 
@@ -70,7 +68,8 @@ void TaskServer::wifi_init_sta(void) {
   ESP_ERROR_CHECK(esp_event_loop_create_default());
 
   esp_netif_t *esp_netif = esp_netif_create_default_wifi_sta();
-  ESP_ERROR_CHECK(esp_netif_set_hostname(esp_netif, "ESP32-C3 DEVICE"));
+  ESP_ERROR_CHECK(esp_netif_set_hostname(
+      esp_netif, m_conf.get_string(TaskConfig::HOSTNAME).c_str()));
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -82,8 +81,7 @@ void TaskServer::wifi_init_sta(void) {
   ESP_ERROR_CHECK(esp_event_handler_instance_register(
       IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, this, &instance_got_ip));
 
-
-      wifi_config_t wifi_config = {};
+  wifi_config_t wifi_config = {};
 
   if (m_conf.get_string(TaskConfig::WIFI_MODE).empty() ||
       m_conf.get_string(TaskConfig::WIFI_MODE).compare("OPEN") == 0) {
@@ -123,12 +121,12 @@ void TaskServer::wifi_init_sta(void) {
    * can test which event actually happened. */
   if (bits & WIFI_CONNECTED_BIT) {
     ESP_LOGI(m_taskName, "connected to ap SSID:%s",
-             m_conf.get_string(TaskConfig::WIFI_SSID));
+             m_conf.get_string(TaskConfig::WIFI_SSID).c_str());
 
   } else if (bits & WIFI_FAIL_BIT) {
     ESP_LOGI(m_taskName, "Failed to connect to SSID:%s, password:%s",
-             m_conf.get_string(TaskConfig::WIFI_SSID),
-             m_conf.get_string(TaskConfig::WIFI_PASS));
+             m_conf.get_string(TaskConfig::WIFI_SSID).c_str(),
+             m_conf.get_string(TaskConfig::WIFI_PASS).c_str());
   } else {
     ESP_LOGE(m_taskName, "UNEXPECTED EVENT");
   }
@@ -139,27 +137,40 @@ void TaskServer::wifi_init_sta(void) {
 esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
   // Get the TaskServer instance from user_ctx
   TaskServer *task = static_cast<TaskServer *>(req->user_ctx);
+  assert(task);
 
   // Set response type
   httpd_resp_set_type(req, "text/html");
 
   // HTML content template (static string to minimize memory usage)
-  const char *html_template =
+  const char *html_first =
       "<!DOCTYPE html>"
       "<html lang=\"ru\">"
       "<head>"
       ""
       "<meta charset=utf-8>"
-      ""
-      "<title>ESP32 SERVER</title>"
-      ""
+      "<title>";
+
+  httpd_resp_sendstr_chunk(req, html_first);
+  httpd_resp_sendstr_chunk(
+      req, task->m_conf.get_string(TaskConfig::HOSTNAME).c_str());
+
+  const char *html_second =
+      "</title>"
       "<style>"
       "body { font-family: Arial, sans-serif; margin: 20px; }"
       "</style>\n"
       "</head>\n"
       ""
       "<body>"
-      "<h1>ESP32 UART Monitor</h1>"
+      "<h1>";
+
+  httpd_resp_sendstr_chunk(req, html_second);
+  httpd_resp_sendstr_chunk(
+      req, task->m_conf.get_string(TaskConfig::HOSTNAME).c_str());
+
+  const char *html_body =
+      "</h1>"
       "<div id=\"info-container\">"
       "<p id=\"jsDisabled\">JavaScript disabled.</p>"
       "</div>"
@@ -212,7 +223,8 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
       "</html>";
 
   // Send complete HTML content
-  httpd_resp_send(req, html_template, HTTPD_RESP_USE_STRLEN);
+  httpd_resp_sendstr_chunk(req, html_body);
+  httpd_resp_sendstr_chunk(req, nullptr);
   return ESP_OK;
 }
 
@@ -358,7 +370,6 @@ void TaskServer::cleanup() {
     httpd_stop(m_server);
   }
 }
-
 
 /*
 
@@ -597,7 +608,3 @@ SNMP v1,2c или логин/пароль, если SNMP v3).
 //     inet_ntoa(addr_in.sin_addr));
 //   }
 // }
-
-
-
-
