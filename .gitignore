@@ -1,9 +1,14 @@
 # Build directories
-build/
+**/build/
 .vscode/
 *.old
 *.part
 .roo
+doc/
+sdcconfig
+
+# clangd
+.cache/
 
 # Compiled files
 *.o
@@ -14,7 +19,7 @@ build/
 *.exe
 
 # Executables
-PropertyParserTests
+unit-test
 
 # CMake generated files
 CMakeCache.txt
@@ -22,3 +27,4 @@ CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
+sdkconfig
