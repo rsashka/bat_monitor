@@ -274,7 +274,7 @@ static bool example_adc_calibration_init(adc_unit_t unit, adc_atten_t atten,
 
 static void example_adc_calibration_deinit(adc_cali_handle_t handle) {
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
-//   ESP_LOGI(TAG, "deregister %s calibration scheme", "Curve Fitting");
+  //   ESP_LOGI(TAG, "deregister %s calibration scheme", "Curve Fitting");
   ESP_ERROR_CHECK(adc_cali_delete_scheme_curve_fitting(handle));
 
 #elif ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
@@ -291,6 +291,10 @@ TaskADC::TaskADC(TaskConfig &conf) : RtosTask("ADC", 2048), m_conf(conf) {
   m_adc_hi = ADC_CHANNEL_0;
   m_adc_lo = ADC_CHANNEL_1;
 }
+
+float TaskADC::GetHiVoltage() { return 0; }
+float TaskADC::GetLoVoltage() { return 0; }
+float TaskADC::GetСurrent() { return 0; }
 
 void TaskADC::setup() {
   //-------------ADC1 Config---------------//
@@ -311,36 +315,42 @@ void TaskADC::setup() {
 void TaskADC::loop() {
   int ratio = 26;  // (300+12)/12
 
-  ESP_ERROR_CHECK(adc_oneshot_read(m_adc_handle, m_adc_hi, &adc_raw[0][0]));
-  ESP_LOGI(m_taskName, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1,
-           m_adc_hi, adc_raw[0][0]);
+  //   ESP_ERROR_CHECK(adc_oneshot_read(m_adc_handle, m_adc_hi,
+  //   &adc_raw[0][0])); ESP_LOGI(m_taskName, "ADC%d Channel[%d] Raw Data: %d",
+  //   ADC_UNIT_1 + 1,
+  //            m_adc_hi, adc_raw[0][0]);
 
-  if (m_do_calibration) {
-    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(m_adc_cali_handle, adc_raw[0][0],
-                                            &voltage[0][0]));
-    ESP_LOGI(m_taskName, "ADC%d Channel[%d] Cali Voltage : %d mV ",
-             ADC_UNIT_1 + 1, m_adc_hi, ratio * voltage[0][0]);
-  }
-  sleep(1000);
+  //   if (m_do_calibration) {
+  //     ESP_ERROR_CHECK(adc_cali_raw_to_voltage(m_adc_cali_handle,
+  //     adc_raw[0][0],
+  //                                             &voltage[0][0]));
+  //     ESP_LOGI(m_taskName, "ADC%d Channel[%d] Cali Voltage : %d mV ",
+  //              ADC_UNIT_1 + 1, m_adc_hi, ratio * voltage[0][0]);
+  //   }
+  //   sleep(1000);
 
-  ESP_ERROR_CHECK(adc_oneshot_read(m_adc_handle, m_adc_lo, &adc_raw[0][1]));
-  ESP_LOGI(m_taskName, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1,
-           m_adc_lo, adc_raw[0][1]);
+  //   ESP_ERROR_CHECK(adc_oneshot_read(m_adc_handle, m_adc_lo,
+  //   &adc_raw[0][1])); ESP_LOGI(m_taskName, "ADC%d Channel[%d] Raw Data: %d",
+  //   ADC_UNIT_1 + 1,
+  //            m_adc_lo, adc_raw[0][1]);
 
-  if (m_do_calibration) {
-    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(m_adc_cali_handle, adc_raw[0][1],
-                                            &voltage[0][1]));
-    ESP_LOGI(m_taskName, "ADC%d Channel[%d] Cali Voltage : %d mV ",
-             ADC_UNIT_1 + 1, m_adc_lo, ratio * voltage[0][1]);
-  }
-  sleep(1000);
+  //   if (m_do_calibration) {
+  //     ESP_ERROR_CHECK(adc_cali_raw_to_voltage(m_adc_cali_handle,
+  //     adc_raw[0][1],
+  //                                             &voltage[0][1]));
+  //     ESP_LOGI(m_taskName, "ADC%d Channel[%d] Cali Voltage : %d mV ",
+  //              ADC_UNIT_1 + 1, m_adc_lo, ratio * voltage[0][1]);
+  //   }
+  //   sleep(1000);
 
-  ESP_LOGI(m_taskName, "ADC%d diff Raw Data: %d", ADC_UNIT_1 + 1,
-           adc_raw[0][1] - adc_raw[0][0]);
-  if (m_do_calibration) {
-    ESP_LOGI(m_taskName, "ADC%d diff Voltage: %d mV", ADC_UNIT_1 + 1,
-             ratio * (voltage[0][1] - voltage[0][0]));
-  }
+  //   ESP_LOGI(m_taskName, "ADC%d diff Raw Data: %d", ADC_UNIT_1 + 1,
+  //            adc_raw[0][1] - adc_raw[0][0]);
+  //   if (m_do_calibration) {
+  //     ESP_LOGI(m_taskName, "ADC%d diff Voltage: %d mV", ADC_UNIT_1 + 1,
+  //              ratio * (voltage[0][1] - voltage[0][0]));
+  //   }
+
+  ESP_LOGI(m_taskName, "ADC loop");
 
   sleep(1000);
 }

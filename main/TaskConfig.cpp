@@ -3,6 +3,7 @@
 
 #include "TaskConfig.h"
 #include "driver/usb_serial_jtag.h"
+#include "esp_system.h"
 
 TaskConfig::TaskConfig()
     : RtosTask("Config", 4048),
@@ -29,6 +30,9 @@ TaskConfig::TaskConfig()
 
           {DIV_HI, {"", &CheckFloat, "Upper divisor"}},  //
           {DIV_LO, {"", &CheckFloat, "Lower divisor"}},  //
+
+          {REBOOT, {"", nullptr, "Set reboot to reboot"}},  //
+
       } {
   // Initialize NVS
   esp_err_t err = nvs_flash_init();
@@ -61,7 +65,7 @@ bool TaskConfig::CheckFloat(const std::string &s) {
   return std::regex_match(s, pattern);
 }
 
-const std::string &TaskConfig::get_string(std::string_view prop) {
+const std::string &TaskConfig::get_prop(std::string_view prop) {
   auto found = m_prop.find(prop.begin());
   if (found == m_prop.end()) {
     ESP_LOGE(m_taskName, "Property name '%s' not found!", prop.begin());
@@ -69,12 +73,6 @@ const std::string &TaskConfig::get_string(std::string_view prop) {
     return nullstr;
   }
   return found->second.value;
-}
-int TaskConfig::get_int(std::string_view prop) {
-  return atoi(get_string(prop).c_str());
-}
-float TaskConfig::get_float(std::string_view prop) {
-  return atof(get_string(prop).c_str());
 }
 
 bool TaskConfig::DumpPrint(const std::string &str) {
@@ -106,19 +104,19 @@ void TaskConfig::Dump(const std::string_view math,
   }
   (*callback)(hdr);
 }
-void TaskConfig::PropUpdate(const std::string_view name,
-                            const std::string_view value) {
+bool TaskConfig::PropUpdate(const std::string_view name,
+                            const std::string_view new_value) {
   esp_err_t err;
   if (name.compare(SHUNT_I) == 0) {
     // Calculate the resistance of the current shunt 75mV
-    m_prop[SHUNT_R].value = std::to_string(0.075f / atof(value.begin()));
+    m_prop[SHUNT_R].value = std::to_string(0.075f / atof(new_value.begin()));
     ESP_LOGI(m_taskName, "Recalc property '%s' to '%s' Ohm", SHUNT_R,
              m_prop[SHUNT_R].value.c_str());
 
     err = nvs_set_str(m_storage, SHUNT_R, m_prop[SHUNT_R].value.c_str());
     if (err != ESP_OK) {
       ESP_LOGE(m_taskName, "Failed write '%s' to new value '%s' - %s",
-               name.begin(), value.begin(), esp_err_to_name(err));
+               name.begin(), new_value.begin(), esp_err_to_name(err));
     }
 
   } else if (name.compare(SHUNT_R) == 0) {
@@ -131,8 +129,18 @@ void TaskConfig::PropUpdate(const std::string_view name,
                esp_err_to_name(err));
     }
   } else if (name.compare(STAT) == 0) {
-    TaskPool.m_interval = get_int(STAT);
+    TaskPool.m_interval = atoi(new_value.begin());
+  } else if (name.compare(REBOOT) == 0) {
+    if (new_value.compare(REBOOT) == 0) {
+      ESP_LOGI(m_taskName, "Start reboot in 1 second!\n\n\n\n");
+      sleep(1000);
+      esp_restart();
+    } else {
+      ESP_LOGI(m_taskName, "To reboot, enter 'reboot=reboot'");
+    }
+    return false;  // Not save property
   }
+  return true;
 }
 void TaskConfig::ParserCallback(void *obj, const PropertyParser &parser) {
   esp_err_t err;
@@ -152,27 +160,28 @@ void TaskConfig::ParserCallback(void *obj, const PropertyParser &parser) {
       if (config->m_prop[parser.getPropertyName().c_str()].check == nullptr ||
           (*config->m_prop[parser.getPropertyName().c_str()].check)(
               parser.getPropertyValue())) {
-        err = nvs_set_str(config->m_storage, parser.getPropertyName().c_str(),
-                          parser.getPropertyValue().c_str());
-        if (err != ESP_OK) {
-          ESP_LOGE(config->m_taskName,
-                   "Failed write '%s' to new value '%s' - %s",
+        if (config->PropUpdate(parser.getPropertyName(),
+                               parser.getPropertyValue())) {
+          err = nvs_set_str(config->m_storage, parser.getPropertyName().c_str(),
+                            parser.getPropertyValue().c_str());
+          if (err != ESP_OK) {
+            ESP_LOGE(config->m_taskName,
+                     "Failed write '%s' to new value '%s' - %s",
+                     parser.getPropertyName().c_str(),
+                     parser.getPropertyValue().c_str(), esp_err_to_name(err));
+          }
+
+          config->m_prop[parser.getPropertyName().c_str()].value =
+              parser.getPropertyValue().c_str();
+          ESP_LOGD(config->m_taskName, "Property name '%s' set vaalue '%s'",
                    parser.getPropertyName().c_str(),
-                   parser.getPropertyValue().c_str(), esp_err_to_name(err));
-        }
+                   parser.getPropertyValue().c_str());
 
-        config->m_prop[parser.getPropertyName().c_str()].value =
-            parser.getPropertyValue().c_str();
-        ESP_LOGD(config->m_taskName, "Property name '%s' set vaalue '%s'",
-                 parser.getPropertyName().c_str(),
-                 parser.getPropertyValue().c_str());
-
-        err = nvs_commit(config->m_storage);
-        if (err != ESP_OK) {
-          ESP_LOGE(config->m_taskName, "Failed to commit NVS changes!");
-        }
-
-        config->PropUpdate(parser.getPropertyName(), parser.getPropertyValue());
+          err = nvs_commit(config->m_storage);
+          if (err != ESP_OK) {
+            ESP_LOGE(config->m_taskName, "Failed to commit NVS changes!");
+          }
+        };
 
       } else {
         ESP_LOGE(config->m_taskName, "Error set value '%s' for property '%s'",

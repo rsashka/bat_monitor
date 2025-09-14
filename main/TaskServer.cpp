@@ -40,7 +40,8 @@ void TaskServer::event_handler(void *arg, esp_event_base_t event_base,
 
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
-    if (task->m_retry_num < task->m_conf.get_int(TaskConfig::WIFI_RETRY)) {
+    if (task->m_retry_num <
+        atoi(task->m_conf.get_prop(TaskConfig::WIFI_RETRY).c_str())) {
       esp_wifi_connect();
       task->m_retry_num++;
       ESP_LOGI(task->m_taskName, "retry to connect to the AP");
@@ -69,7 +70,7 @@ void TaskServer::wifi_init_sta(void) {
 
   esp_netif_t *esp_netif = esp_netif_create_default_wifi_sta();
   ESP_ERROR_CHECK(esp_netif_set_hostname(
-      esp_netif, m_conf.get_string(TaskConfig::HOSTNAME).c_str()));
+      esp_netif, m_conf.get_prop(TaskConfig::HOSTNAME).c_str()));
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -83,25 +84,24 @@ void TaskServer::wifi_init_sta(void) {
 
   wifi_config_t wifi_config = {};
 
-  if (m_conf.get_string(TaskConfig::WIFI_MODE).empty() ||
-      m_conf.get_string(TaskConfig::WIFI_MODE).compare("OPEN") == 0) {
+  if (m_conf.get_prop(TaskConfig::WIFI_MODE).empty() ||
+      m_conf.get_prop(TaskConfig::WIFI_MODE).compare("OPEN") == 0) {
     // None
     wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
-  } else if (m_conf.get_string(TaskConfig::WIFI_MODE).compare("WEP") == 0) {
+  } else if (m_conf.get_prop(TaskConfig::WIFI_MODE).compare("WEP") == 0) {
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WEP;
-  } else if (m_conf.get_string(TaskConfig::WIFI_MODE).compare("WPA2") == 0) {
+  } else if (m_conf.get_prop(TaskConfig::WIFI_MODE).compare("WPA2") == 0) {
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
   } else {
     ESP_LOGE(m_taskName,
              "Unknown or not implemented Wi-Fi authentication method (%s)",
-             m_conf.get_string(TaskConfig::WIFI_MODE).c_str());
+             m_conf.get_prop(TaskConfig::WIFI_MODE).c_str());
   }
 
-  std::copy(m_conf.get_string(TaskConfig::WIFI_SSID).begin(),
-            m_conf.get_string(TaskConfig::WIFI_SSID).end(),
-            wifi_config.sta.ssid);
-  std::copy(m_conf.get_string(TaskConfig::WIFI_PASS).begin(),
-            m_conf.get_string(TaskConfig::WIFI_PASS).end(),
+  std::copy(m_conf.get_prop(TaskConfig::WIFI_SSID).begin(),
+            m_conf.get_prop(TaskConfig::WIFI_SSID).end(), wifi_config.sta.ssid);
+  std::copy(m_conf.get_prop(TaskConfig::WIFI_PASS).begin(),
+            m_conf.get_prop(TaskConfig::WIFI_PASS).end(),
             wifi_config.sta.password);
 
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -121,12 +121,12 @@ void TaskServer::wifi_init_sta(void) {
    * can test which event actually happened. */
   if (bits & WIFI_CONNECTED_BIT) {
     ESP_LOGI(m_taskName, "connected to ap SSID:%s",
-             m_conf.get_string(TaskConfig::WIFI_SSID).c_str());
+             m_conf.get_prop(TaskConfig::WIFI_SSID).c_str());
 
   } else if (bits & WIFI_FAIL_BIT) {
     ESP_LOGI(m_taskName, "Failed to connect to SSID:%s, password:%s",
-             m_conf.get_string(TaskConfig::WIFI_SSID).c_str(),
-             m_conf.get_string(TaskConfig::WIFI_PASS).c_str());
+             m_conf.get_prop(TaskConfig::WIFI_SSID).c_str(),
+             m_conf.get_prop(TaskConfig::WIFI_PASS).c_str());
   } else {
     ESP_LOGE(m_taskName, "UNEXPECTED EVENT");
   }
@@ -152,8 +152,8 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
       "<title>";
 
   httpd_resp_sendstr_chunk(req, html_first);
-  httpd_resp_sendstr_chunk(
-      req, task->m_conf.get_string(TaskConfig::HOSTNAME).c_str());
+  httpd_resp_sendstr_chunk(req,
+                           task->m_conf.get_prop(TaskConfig::HOSTNAME).c_str());
 
   const char *html_second =
       "</title>"
@@ -166,8 +166,8 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
       "<h1>";
 
   httpd_resp_sendstr_chunk(req, html_second);
-  httpd_resp_sendstr_chunk(
-      req, task->m_conf.get_string(TaskConfig::HOSTNAME).c_str());
+  httpd_resp_sendstr_chunk(req,
+                           task->m_conf.get_prop(TaskConfig::HOSTNAME).c_str());
 
   const char *html_body =
       "</h1>"
@@ -175,7 +175,7 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
       "<p id=\"jsDisabled\">JavaScript disabled.</p>"
       "</div>"
       "\n"
-      "<label for='name'>Input:</label>"
+      "<label for='name'>Property: </label>"
       "<input type='text' id='input-data' name='input-data' size='40' />"
       "<div><textarea id='query-data' readonly></textarea></div>"
       "\n"
@@ -196,7 +196,7 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
       "  };"
       "  request.send();\n"
       ""
-      "  setTimeout(startInfoTimer,2000);"
+      "  setTimeout(startInfoTimer,1000);"
       "}\n"
       ""
       "document.addEventListener('DOMContentLoaded', function() {"
@@ -228,6 +228,8 @@ esp_err_t TaskServer::dynamic_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+/*
+ */
 esp_err_t TaskServer::info_handler(httpd_req_t *req) {
   // Get the TaskServer instance from user_ctx
   TaskServer *task = static_cast<TaskServer *>(req->user_ctx);
@@ -235,25 +237,42 @@ esp_err_t TaskServer::info_handler(httpd_req_t *req) {
   // Set response type
   httpd_resp_set_type(req, "text/html");
 
-#define MESSAGE_INFO \
-  "<ul>"             \
-  "<li>%s</li>"      \
-  "</ul>",           \
-      esp_get_idf_version()
+  httpd_resp_sendstr_chunk(req, "<ul>");
 
-  int len = snprintf(nullptr, 0, MESSAGE_INFO);
+  httpd_resp_sendstr_chunk(req, "<li>IDF version: <b>");
+  httpd_resp_sendstr_chunk(req, esp_get_idf_version());
+  httpd_resp_sendstr_chunk(req, "</b></li><br>");
 
-  static std::string message;
-  if (len > message.size()) {
-    message.reserve(len + 200);
-  }
-  if (len != message.size()) {
-    message.resize(len);
-  }
-  snprintf(message.data(), message.size(), MESSAGE_INFO);
+  httpd_resp_sendstr_chunk(req, "<li>Locat time: <b>");
+  time_t t = std::time(nullptr);
+  httpd_resp_sendstr_chunk(req, ctime(&t));
+  httpd_resp_sendstr_chunk(req, "</b></li>");
 
-  // Send complete HTML content
-  httpd_resp_send(req, message.data(), message.size());
+  httpd_resp_sendstr_chunk(req, "<li>Uptime: <b>");
+  int32_t uptime = esp_timer_get_time() / 1000000;
+  int32_t days = uptime / 86400;
+  httpd_resp_sendstr_chunk(
+      req, std::format("{}d {}h {}m {}s", days, (uptime - days) / 3600,
+                       (uptime / 60 % 60), uptime % 60)
+               .c_str());
+  httpd_resp_sendstr_chunk(req, "</b></li><br>");
+
+  httpd_resp_sendstr_chunk(req, "<li>High voltage: <b>");
+  httpd_resp_sendstr_chunk(
+      req, std::format("{:.3f}", task->m_adc->GetHiVoltage()).c_str());
+  httpd_resp_sendstr_chunk(req, "</b></li>");
+  httpd_resp_sendstr_chunk(req, "<li>Low voltage: <b>");
+  httpd_resp_sendstr_chunk(
+      req, std::format("{:.3f}", task->m_adc->GetLoVoltage()).c_str());
+  httpd_resp_sendstr_chunk(req, "</b></li>");
+  httpd_resp_sendstr_chunk(req, "<li>Current: <b>");
+  httpd_resp_sendstr_chunk(
+      req, std::format("{:.2f}", task->m_adc->GetСurrent()).c_str());
+  httpd_resp_sendstr_chunk(req, "</b></li>");
+
+  httpd_resp_sendstr_chunk(req, "</ul>");
+  httpd_resp_sendstr_chunk(req, nullptr);
+
   return ESP_OK;
 }
 

@@ -20,6 +20,10 @@ class TaskADC : public RtosTask {
  public:
   TaskADC(TaskConfig &conf);
 
+  float GetHiVoltage();
+  float GetLoVoltage();
+  float GetСurrent();
+
  protected:
   void setup() override;
   void loop() override;

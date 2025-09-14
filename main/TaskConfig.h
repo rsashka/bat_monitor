@@ -37,7 +37,7 @@ class TaskConfig : public RtosTask {
 
  public:
   static void ParserCallback(void *, const PropertyParser &);
-  void PropUpdate(const std::string_view name, const std::string_view value);
+  bool PropUpdate(const std::string_view name, const std::string_view new_value);
 
  public:
   static constexpr const char *HOSTNAME = "hostname";
@@ -47,7 +47,7 @@ class TaskConfig : public RtosTask {
   static constexpr const char *WIFI_RETRY = "wifi-retry";
   static constexpr const char *WIFI_IP = "wifi-ip";
 
-  static constexpr const char *SNTP_SERVER = "";
+  static constexpr const char *SNTP_SERVER = "sntp-server";
 
   static constexpr const char *SHUNT_R = "shunt-r";
   static constexpr const char *SHUNT_I = "shunt-i";
@@ -59,9 +59,9 @@ class TaskConfig : public RtosTask {
   static constexpr const char *HTTP_USERNAME = "http-username";
   static constexpr const char *HTTP_PASSWORD = "http-password";
 
-  const std::string &get_string(std::string_view prop);
-  int get_int(std::string_view prop);
-  float get_float(std::string_view prop);
+  static constexpr const char *REBOOT = "reboot";
+
+  const std::string &get_prop(std::string_view prop);
 
  public:
   TaskConfig();
